@@ -413,7 +413,7 @@ export default function App() {
               <p className="text-sm mt-2">Check back later or join <a href={`https://t.me/${import.meta.env.VITE_TELEGRAM_CHANNEL || 'FlashLootDealsx'}`} target="_blank" rel="noopener noreferrer" className="text-[#32CD32] hover:underline font-medium">Loot Factory | Flash Sale</a> on Telegram for instant updates!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 min-[400px]:grid-cols-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 gap-1.5 sm:gap-2 md:gap-4">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 gap-1.5 sm:gap-2 md:gap-4">
               {sortedProducts.map((product, index) => {
                 // Deterministically decide if a product is ending soon based on grid position (assuming 5 cols)
                 const rowIndex = Math.floor(index / 5);
