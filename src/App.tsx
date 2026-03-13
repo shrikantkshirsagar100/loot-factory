@@ -18,6 +18,7 @@ interface Product {
   keywords?: string[];
   mrp?: string;
   discount?: number;
+  links?: string;
 }
 
 const CATEGORIES = {
@@ -59,8 +60,8 @@ const CountdownTimer = ({ id, variant = 'inline' }: { id: string, variant?: 'inl
   if (variant === 'overlay') {
     return (
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent pt-4 sm:pt-6 md:pt-8 pb-1 sm:pb-1.5 md:pb-2 px-0.5 sm:px-1 md:px-2 flex justify-center z-20">
-        <div className="flex items-center gap-0.5 sm:gap-1 md:gap-1.5 text-white font-bold text-[7px] sm:text-[9px] md:text-xs bg-red-600/90 backdrop-blur-sm px-1 sm:px-1.5 md:px-2.5 py-0.5 md:py-1 rounded-full shadow-lg border border-red-400/30 whitespace-nowrap">
-          <Clock className="w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3.5 md:h-3.5 animate-pulse" />
+        <div className="flex items-center gap-0.5 sm:gap-1 md:gap-1.5 text-white font-bold text-[8px] sm:text-[10px] md:text-xs bg-red-600/90 backdrop-blur-sm px-1.5 sm:px-2 md:px-2.5 py-0.5 md:py-1 rounded-full shadow-lg border border-red-400/30 whitespace-nowrap">
+          <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-3.5 md:h-3.5 animate-pulse" />
           Ends in {timeString}
         </div>
       </div>
@@ -112,6 +113,7 @@ export default function App() {
   const [cart, setCart] = useState<Product[]>([]);
   const [sortBy, setSortBy] = useState('newest');
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const toggleCartItem = (product: Product) => {
     setCart(prev => {
@@ -230,7 +232,36 @@ export default function App() {
                         <div className="text-[#32CD32] font-bold text-sm mt-1">{item.price}</div>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <a href={item.link} target="_blank" rel="noopener noreferrer" className="bg-[#ff9f00] text-white px-3 py-1.5 rounded text-xs font-medium text-center hover:bg-[#f39800] transition-colors">Grab</a>
+                        <a 
+                          href={item.link} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          onClick={(e) => {
+                            if (item.links) {
+                              try {
+                                const parsed = JSON.parse(item.links);
+                                if (parsed.length > 1) {
+                                  e.preventDefault();
+                                  setIsCartOpen(false);
+                                  setSelectedProduct(item);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }
+                              } catch (err) {}
+                            }
+                          }}
+                          className="bg-[#ff9f00] text-white px-3 py-1.5 rounded text-xs font-medium text-center hover:bg-[#f39800] transition-colors"
+                        >
+                          {(() => {
+                            let isMulti = false;
+                            if (item.links) {
+                              try {
+                                const parsed = JSON.parse(item.links);
+                                if (parsed.length > 1) isMulti = true;
+                              } catch (e) {}
+                            }
+                            return isMulti ? 'View' : 'Grab';
+                          })()}
+                        </a>
                         <button onClick={() => toggleCartItem(item)} className="text-red-500 p-1.5 hover:bg-red-50 dark:hover:bg-red-500/10 rounded flex justify-center transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -384,8 +415,65 @@ export default function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 shadow-sm rounded-sm mb-6 transition-colors duration-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b dark:border-gray-700 pb-3 mb-4 gap-3">
+        {selectedProduct ? (
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm rounded-sm mb-6 transition-colors duration-200 animate-in fade-in slide-in-from-bottom-4">
+            <button 
+              onClick={() => setSelectedProduct(null)}
+              className="mb-4 text-[#32CD32] hover:text-[#28a428] font-medium flex items-center gap-1 transition-colors"
+            >
+              ← Back to Deals
+            </button>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-6">
+              {selectedProduct.title}
+            </h2>
+            <div className="flex flex-col gap-3">
+              {(() => {
+                try {
+                  const links = selectedProduct.links ? JSON.parse(selectedProduct.links) : [{url: selectedProduct.link, text: 'Deal Link 1'}];
+                  return links.map((item: any, index: number) => {
+                    const isString = typeof item === 'string';
+                    const linkUrl = isString ? item : item.url;
+                    const linkText = isString ? `Link ${index + 1}` : item.text;
+                    
+                    return (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-3 sm:p-4 rounded-md border border-gray-200 dark:border-gray-700">
+                        <span className="text-sm sm:text-base font-medium text-gray-800 dark:text-gray-200 truncate mr-4">
+                          {linkText}
+                        </span>
+                        <a 
+                          href={linkUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="bg-[#ff9f00] hover:bg-[#f39800] text-white font-medium py-1.5 sm:py-2 px-4 sm:px-6 rounded-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all whitespace-nowrap"
+                        >
+                          Grab Deal <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </div>
+                    );
+                  });
+                } catch (e) {
+                  return (
+                    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-3 sm:p-4 rounded-md border border-gray-200 dark:border-gray-700">
+                      <span className="text-sm sm:text-base font-medium text-gray-800 dark:text-gray-200 truncate mr-4">
+                        Deal Link 1
+                      </span>
+                      <a 
+                        href={selectedProduct.link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="bg-[#ff9f00] hover:bg-[#f39800] text-white font-medium py-1.5 sm:py-2 px-4 sm:px-6 rounded-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all whitespace-nowrap"
+                      >
+                        Grab Deal <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </div>
+                  );
+                }
+              })()}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 shadow-sm rounded-sm mb-6 transition-colors duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b dark:border-gray-700 pb-3 mb-4 gap-3">
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
               Today's Top Deals
             </h2>
@@ -404,8 +492,37 @@ export default function App() {
           </div>
           
           {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#32CD32]"></div>
+            <div className="grid grid-cols-2 min-[360px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+              {[...Array(10)].map((_, i) => (
+                <div key={`skeleton-${i}`} className="bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col animate-pulse">
+                  {/* Image Skeleton */}
+                  <div className="relative pt-[100%] bg-gray-200 dark:bg-gray-700"></div>
+                  
+                  {/* Content Skeleton */}
+                  <div className="p-2 sm:p-2 md:p-4 flex flex-col flex-grow gap-2">
+                    {/* Category */}
+                    <div className="h-2 sm:h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-1"></div>
+                    
+                    {/* Title (2 lines) */}
+                    <div className="h-3 sm:h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                    <div className="h-3 sm:h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/5 mb-2"></div>
+                    
+                    {/* Price */}
+                    <div className="mt-auto flex items-baseline gap-2 mb-3">
+                      <div className="h-4 sm:h-5 md:h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                      <div className="h-2 sm:h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+                    </div>
+                    
+                    {/* Button */}
+                    <div className="h-6 sm:h-8 md:h-10 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                    
+                    {/* Footer stats */}
+                    <div className="mt-2 flex justify-center">
+                      <div className="h-2 sm:h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : sortedProducts.length === 0 ? (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
@@ -413,7 +530,7 @@ export default function App() {
               <p className="text-sm mt-2">Check back later or join <a href={`https://t.me/${import.meta.env.VITE_TELEGRAM_CHANNEL || 'FlashLootDealsx'}`} target="_blank" rel="noopener noreferrer" className="text-[#32CD32] hover:underline font-medium">Loot Factory | Flash Sale</a> on Telegram for instant updates!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 gap-1.5 sm:gap-2 md:gap-4">
+            <div className="grid grid-cols-2 min-[360px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
               {sortedProducts.map((product, index) => {
                 // Deterministically decide if a product is ending soon based on grid position (assuming 5 cols)
                 const rowIndex = Math.floor(index / 5);
@@ -435,6 +552,18 @@ export default function App() {
                   href={product.link}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => {
+                    if (product.links) {
+                      try {
+                        const parsed = JSON.parse(product.links);
+                        if (parsed.length > 1) {
+                          e.preventDefault();
+                          setSelectedProduct(product);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                      } catch (err) {}
+                    }
+                  }}
                   className="group flex flex-col border border-gray-200 dark:border-gray-700 rounded-sm hover:shadow-xl dark:hover:shadow-green-900/20 hover:-translate-y-1.5 transition-all duration-300 bg-white dark:bg-gray-800 overflow-hidden relative"
                 >
                   <button
@@ -444,7 +573,7 @@ export default function App() {
                     <Heart className={`w-3 h-3 sm:w-4 sm:h-4 transition-colors ${isInCart(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400 dark:text-gray-500'}`} />
                   </button>
                   {product.discount && product.discount > 0 ? (
-                    <span className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-green-500 text-white text-[8px] sm:text-[10px] font-bold px-1 sm:px-2 py-0.5 sm:py-1 rounded-sm shadow-md z-10">
+                    <span className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-green-500 text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-sm shadow-md z-10">
                       {product.discount}% OFF
                     </span>
                   ) : null}
@@ -463,36 +592,49 @@ export default function App() {
                     )}
                     {isEndingSoon && <CountdownTimer id={product.id} variant="overlay" />}
                   </div>
-                  <div className="p-1.5 sm:p-2 md:p-4 flex flex-col flex-grow">
+                  <div className="p-2 sm:p-2 md:p-4 flex flex-col flex-grow">
                     {product.category && product.category !== 'Other' && (
-                      <span className="text-[8px] sm:text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-[#32CD32] mb-0.5 sm:mb-1">
+                      <span className="text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-wider text-[#32CD32] mb-0.5 sm:mb-1">
                         {product.category}
                       </span>
                     )}
-                    <h3 className="text-[9px] leading-tight sm:text-[11px] md:text-sm text-gray-800 dark:text-gray-200 font-medium line-clamp-2 mb-1 sm:mb-1.5 md:mb-2 group-hover:text-[#32CD32] dark:group-hover:text-[#32CD32] transition-colors">
+                    <h3 className="text-[10px] leading-tight sm:text-xs md:text-sm text-gray-800 dark:text-gray-200 font-medium line-clamp-2 mb-1 sm:mb-1.5 md:mb-2 group-hover:text-[#32CD32] dark:group-hover:text-[#32CD32] transition-colors">
                       {product.title}
                     </h3>
                     {product.coupon && (
                       <div className="mb-1 sm:mb-1.5 md:mb-2">
-                        <span className="inline-block bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 text-[8px] sm:text-[9px] md:text-xs px-1 sm:px-1.5 md:px-2 py-0.5 rounded border border-green-200 dark:border-green-800 font-mono font-bold">
+                        <span className="inline-block bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 text-[9px] sm:text-[10px] md:text-xs px-1.5 sm:px-1.5 md:px-2 py-0.5 rounded border border-green-200 dark:border-green-800 font-mono font-bold">
                           Code: {product.coupon}
                         </span>
                       </div>
                     )}
                     <div className="mt-auto">
-                      <div className="flex items-baseline gap-0.5 sm:gap-1 md:gap-2 mb-1.5 sm:mb-2 md:mb-3">
-                        <span className="text-[11px] sm:text-sm md:text-lg font-bold text-gray-900 dark:text-white">
+                      <div className="flex items-baseline gap-1 sm:gap-1 md:gap-2 mb-1.5 sm:mb-2 md:mb-3">
+                        <span className="text-xs sm:text-sm md:text-lg font-bold text-gray-900 dark:text-white">
                           {product.price}
                         </span>
                         {product.mrp && (
-                          <span className="text-[8px] sm:text-[9px] md:text-xs text-gray-500 dark:text-gray-400 line-through">
+                          <span className="text-[9px] sm:text-[10px] md:text-xs text-gray-500 dark:text-gray-400 line-through">
                             {product.mrp}
                           </span>
                         )}
                       </div>
                       <div className="flex gap-1 sm:gap-1.5 md:gap-2">
-                        <button className="flex-1 bg-[#ff9f00] hover:bg-[#f39800] text-white font-medium py-1 sm:py-1.5 md:py-2 px-1 sm:px-2 md:px-3 rounded-sm flex items-center justify-center gap-0.5 sm:gap-1 hover:scale-[1.02] active:scale-95 hover:shadow-md transition-all duration-300 text-[8px] sm:text-[10px] md:text-sm">
-                          Grab <span className="hidden sm:inline">Deal</span> <ExternalLink className="h-2 w-2 sm:h-2.5 sm:w-2.5 md:h-4 md:w-4" />
+                        <button className="flex-1 bg-[#ff9f00] hover:bg-[#f39800] text-white font-medium py-1 sm:py-1.5 md:py-2 px-1 sm:px-2 md:px-3 rounded-sm flex items-center justify-center gap-0.5 sm:gap-1 hover:scale-[1.02] active:scale-95 hover:shadow-md transition-all duration-300 text-[10px] sm:text-xs md:text-sm">
+                          {(() => {
+                            let isMulti = false;
+                            if (product.links) {
+                              try {
+                                const parsed = JSON.parse(product.links);
+                                if (parsed.length > 1) isMulti = true;
+                              } catch (e) {}
+                            }
+                            return isMulti ? (
+                              <>View <span className="hidden sm:inline">Deals</span></>
+                            ) : (
+                              <>Grab <span className="hidden sm:inline">Deal</span> <ExternalLink className="h-2 w-2 sm:h-2.5 sm:w-2.5 md:h-4 md:w-4" /></>
+                            );
+                          })()}
                         </button>
                         <button 
                           onClick={(e) => handleShare(e, product)}
@@ -502,9 +644,9 @@ export default function App() {
                           <Share2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4" />
                         </button>
                       </div>
-                      <div className="mt-1 sm:mt-1.5 md:mt-3 text-center">
-                        <span className="text-[7px] sm:text-[8px] md:text-[11px] text-gray-500 dark:text-gray-400 font-medium flex items-center justify-center gap-0.5">
-                          <TrendingUp className="w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 text-red-500" /> {getClickCount(product.id)} <span className="hidden sm:inline">grabbed today</span>
+                      <div className="mt-1.5 sm:mt-1.5 md:mt-3 text-center">
+                        <span className="text-[8px] sm:text-[9px] md:text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center justify-center gap-0.5">
+                          <TrendingUp className="w-2.5 h-2.5 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 text-red-500" /> {getClickCount(product.id)} <span className="hidden sm:inline">grabbed today</span>
                         </span>
                       </div>
                     </div>
@@ -515,6 +657,7 @@ export default function App() {
             </div>
           )}
         </div>
+        )}
       </main>
 
       {/* Scroll to Top Button */}
