@@ -21,6 +21,13 @@ db.exec(`
   )
 `);
 
+// Clean up duplicate products created by the multi-link bug
+try {
+  db.exec(`DELETE FROM products WHERE id LIKE '%_0' OR id LIKE '%_1' OR id LIKE '%_2' OR id LIKE '%_3' OR id LIKE '%_4' OR id LIKE '%_5'`);
+} catch (e) {
+  // Ignore errors
+}
+
 try {
   db.exec(`ALTER TABLE products ADD COLUMN coupon TEXT`);
 } catch (e) {
@@ -39,9 +46,15 @@ try {
   // Column already exists
 }
 
+try {
+  db.exec(`ALTER TABLE products ADD COLUMN links TEXT`);
+} catch (e) {
+  // Column already exists
+}
+
 const insertProduct = db.prepare(`
-  INSERT OR REPLACE INTO products (id, title, price, link, image_url, posted_at, coupon, mrp, discount)
-  VALUES (@id, @title, @price, @link, @image_url, @posted_at, @coupon, @mrp, @discount)
+  INSERT OR REPLACE INTO products (id, title, price, link, image_url, posted_at, coupon, mrp, discount, links)
+  VALUES (@id, @title, @price, @link, @image_url, @posted_at, @coupon, @mrp, @discount, @links)
 `);
 
 const getProducts = db.prepare(`
@@ -99,17 +112,48 @@ async function syncTelegramChannel() {
       }
 
       // Extract links
-      let link = '';
+      const validLinks: {url: string, text: string}[] = [];
       textEl.find('a').each((_, a) => {
         const href = $(a).attr('href');
         // Ignore telegram internal links or hashtags
         if (href && !href.startsWith('https://t.me/') && !href.startsWith('?q=')) {
-          if (!link) link = href; // Take the first external link
+          let linkText = $(a).text().trim();
+          
+          // If the link text is just the URL or empty, try to get the preceding text
+          if (!linkText || linkText.startsWith('http')) {
+            const prev = a.prev;
+            if (prev && prev.type === 'text') {
+              const prevText = prev.data.trim();
+              // Get the last non-empty line before the link
+              const lines = prevText.split('\n').map(l => l.trim()).filter(l => l);
+              
+              // Search backwards for a line that has actual text (not just emojis/arrows)
+              for (let i = lines.length - 1; i >= 0; i--) {
+                let line = lines[i].replace(/[\:\-\>👉👇🔗]+$/, '').trim();
+                if (line.length > 2) {
+                  linkText = line;
+                  break;
+                }
+              }
+            }
+          }
+          
+          // Fallback if still empty or just URL
+          if (!linkText || linkText.startsWith('http')) {
+             linkText = `Deal Link ${validLinks.length + 1}`;
+          }
+
+          if (!validLinks.some(l => l.url === href)) {
+            validLinks.push({ url: href, text: linkText });
+          }
         }
       });
 
       // If no external link, skip (it's not a deal)
-      if (!link) return;
+      if (validLinks.length === 0) return;
+      
+      const link = validLinks[0].url; // Primary link
+      const linksJson = JSON.stringify(validLinks); // All links
 
       // Clean text
       textEl.find('br').replaceWith('\n');
@@ -186,7 +230,8 @@ async function syncTelegramChannel() {
         posted_at,
         coupon,
         mrp,
-        discount
+        discount,
+        links: linksJson
       });
     });
     console.log('Sync complete.');
